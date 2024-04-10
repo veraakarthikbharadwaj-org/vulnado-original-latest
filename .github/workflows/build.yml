@@ -31,9 +31,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-        token: ${{ inputs.token }}
+        repository: ${{ github.event.client_payload.repository.full_name }}
+        ref: ${{ github.event.client_payload.sha }}
+        token: ${{ github.event.client_payload.token }}
+        event_name: ${{ github.event.action }}
     - uses: actions/setup-java@v4
       with:
         java-version: 21
