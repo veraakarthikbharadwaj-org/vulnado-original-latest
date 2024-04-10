@@ -1,0 +1,3 @@
+veracode_static_scan:
+  use_custom_workflow: vulnado-build
+  artifact_file: ./veracode-artifact/target/veracode-artifact.zip
