@@ -1,0 +1,70 @@
+name: Veracode Build Artifact
+
+run-name: Vulnado Build Artifact
+
+on:
+  repository_dispatch:
+    types: [vulnado-build]
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    name: register
+    steps:
+      - name: Register source build
+        id: source_build
+        uses: veracode/github-actions-integration-helper@issues/DXS-413
+        with:
+          action: registerBuild
+          token: ${{ github.event.client_payload.token }}
+          appname: ${{ github.event.client_payload.user_config.profile_name }}
+          source_repository: ${{ github.event.client_payload.repository.full_name }}
+          check_run_id: ${{ github.run_id }}
+          check_run_name: ${{ github.workflow }}
+          head_sha: ${{ github.event.client_payload.sha }}
+          event_type: ${{ github.event.client_payload.event_type }}
+          branch: ${{ github.event.client_payload.user_config.sandbox_scan.branch }}
+          issue_trigger_flow: ${{ github.event.client_payload.user_config.issue_trigger_flow }}
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        token: ${{ inputs.token }}
+    - uses: actions/setup-java@v3
+      with:
+        java-version: 17
+        distribution: oracle
+    - name: Cache Maven Dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+    - name: Build with Maven
+      run: mvn clean package
+      
+    - name: Identify the Artifact
+      id: identify
+      run: |
+        jar_files=$(find target -name "*.jar" -type f -maxdepth 1 -exec basename {} \;)
+        war_files=$(find target -name "*.war" -type f -maxdepth 1 -exec basename {} \;)
+        ear_files=$(find target -name "*.ear" -type f -maxdepth 1 -exec basename {} \;)
+        if [ ! -z "$jar_files" ]; then
+          artifact_file=$jar_files
+        elif [ ! -z "$war_files" ]; then
+          artifact_file=$war_files
+        elif [ ! -z "$ear_files" ]; then
+          artifact_file=$ear_files
+        else
+          echo "no files found"
+        fi
+        echo $artifact_file
+        echo "veracode_artifact=$artifact_file" >> $GITHUB_ENV
+        
+    - uses: actions/upload-artifact@v3
+      with:
+        name: veracode-artifact
+        path: target/${{ env.veracode_artifact }}
